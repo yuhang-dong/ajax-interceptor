@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+  <head lang="zh-cmn-Hans">
+    <meta charset="UTF-8" />
+    <title>Ajax hook Demo</title>
+    <meta name="renderer" content="webkit" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=0.5,user-scalable=no"
+    />
+    <meta name="keywords" content="Ajax intercept Demo" />
+  </head>
+
+  <body>
+    <button onclick="onClick()">Click Me</button>
+
+    <script>
+        function onClick() {
+            const apiURL = 'https://api.github.com/repos/vuejs/vue/commits?per_page=3&sha=main'
+            var xhr = new XMLHttpRequest()
+            xhr.open('GET', apiURL)
+            xhr.open('POST', apiURL)
+            xhr.onreadystatechange = function(event) {
+                console.log(this.readyState);
+            }
+            xhr.send()
+        }
+    </script>
+    <script type="module">
+      import { intercept } from "../dist/index.js";
+      intercept({
+        xhr: {
+          beforeOpenFuncs: [
+            async (...config) => {
+              console.log("xhr open config", JSON.stringify(config));
+            },
+          ],
+        },
+      });
+    </script>
+  </body>
+</html>
