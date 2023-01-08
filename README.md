@@ -1,6 +1,7 @@
-<center><img src='./docs/icon.svg' /></center>
+<p align="center"><img src='./docs/icon.svg' /></p>
+---
 
-# Ajax Interceptor
+---
 
 `ajax-interceptor` is a library to intercept `XMLHttpRequest` and `Fetch`. We can use it to change request header, method, even destination. It has the below props:
 
