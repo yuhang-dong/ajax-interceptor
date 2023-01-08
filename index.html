@@ -8,20 +8,30 @@
   </head>
   <body>
     <div id="app"></div>
-    <script type="module" src="/src/XHRInterceptor.ts"></script>
+    <!-- <script type="module" src="/src/index.ts"></script> -->
     <script type="module">
-
+      import { intercept } from '/src/index.ts'
+      intercept(); 
       const xhr = new XMLHttpRequest();
       xhr.onreadystatechange = function(event) {
         console.log("onreadystatechange", this.readyState)
         if(this.readyState === 4) {
-          console.log({body: this.response})
+          console.log(this.getAllResponseHeaders())
         }
+
       }
 
-      xhr.open('get', 'http://www.baidu.com');
+      xhr.open('get', 'https://api.github.com/repos/vuejs/vue/commits?per_page=3&sha=main');
+      // xhr.open('G', 'aaa://aaa')
+      
       xhr.send(); 
-      console.log(xhr)
+      xhr.abort();
+
+      // fetch('http://www.baidu.com').then(res => {
+      //   console.log(res);
+      // }).catch(err => {
+      //   console.log(err)
+      // })
     </script>
   </body>
 </html>

@@ -1,71 +1,19 @@
-export type OpenConfig = {
-  method: string;
-  url: string | URL;
-  async?: boolean;
-  username?: string | null | undefined;
-  password?: string | null | undefined;
-};
+import { beforeRequestFuncs, HTTPResponse, afterResponseFuncs, receiveErrorFuncs, HTTPError, HTTPErrorType } from "./interceptor";
+import type {RequestInit} from './interceptor'
 
 export const XHRResponseKeys = [
-  "response",
-  "responseText",
   "status",
-  "responseType",
+  "statusText",
+  "response",
 ] as const;
-export type XHRResponse = Partial<
-  Pick<XMLHttpRequest, "response" | "responseText" | "status" | "responseType">
->;
-
-export const isXHRResponse = (obj: any): obj is XHRResponse => {
-  if (Object.prototype.toString.call(obj) !== "[object Object]") return false;
-
-  // Obj is XHRResponse if contains any valid key
-  for (const key of XHRResponseKeys) {
-    if (key in obj) return true;
-  }
-  return false;
-};
-
-export type BeforeOpenFunc = (
-  openConfig: OpenConfig,
-  xhr: XHRInterceptor
-) => Promise<OpenConfig | undefined>;
-export type BeforeSendFunc = (
-  body: Document | XMLHttpRequestBodyInit | null | undefined,
-  openConfig: OpenConfig,
-  xhr: XHRInterceptor
-) => Promise<
-  Document | XMLHttpRequestBodyInit | null | undefined | XHRResponse
->;
-export type AfterResponseFunc = (
-  response: XHRResponse,
-  openConfig: OpenConfig,
-  body: Document | XMLHttpRequestBodyInit | null | undefined,
-  xhr: XHRInterceptor
-) => Promise<undefined | XHRResponse>;
 
 export class XHRInterceptor extends XMLHttpRequest {
-  static beforeOpenFuncs: BeforeOpenFunc[] = [];
-  static beforeSendFuncs: BeforeSendFunc[] = [];
-  static afterResponseFuncs: AfterResponseFunc[] = [];
 
-  static addBeforeOpenFunc(newFunc: BeforeOpenFunc) {
-    XHRInterceptor.beforeOpenFuncs.push(newFunc);
-  }
-
-  static addBeforeSendFunc(newFunc: BeforeSendFunc) {
-    XHRInterceptor.beforeSendFuncs.push(newFunc);
-  }
-
-  static addAfterResponseFunc(newFunc: AfterResponseFunc) {
-    XHRInterceptor.afterResponseFuncs.push(newFunc)
-  }
-
-  private openConfig: OpenConfig = { method: "GET", url: "" };
+  private openConfig: RequestInit = {type: 'RequestInit'};
   private returnCustomResponse: boolean = false;
-  private requestBody: Document | XMLHttpRequestBodyInit | null | undefined;
-  private customResponse: XHRResponse = {};
+  private customResponse: HTTPResponse = {type: 'HTTPResponse'};
   private globalPromise = Promise.resolve<any>({});
+  private customReadyState = 0;
 
   constructor() {
     super();
@@ -80,22 +28,20 @@ export class XHRInterceptor extends XMLHttpRequest {
           if (isIntercept) return;
           isIntercept = !isIntercept;
           event.stopImmediatePropagation();
-          let response: XHRResponse = {
+          let response: HTTPResponse = {
             response: xhr.response,
-            responseText: xhr.responseText,
+            headers: XHRInterceptor.parseAllHeaders(xhr.getAllResponseHeaders()),
             status: xhr.status,
-            responseType: xhr.responseType,
+            statusText: xhr.statusText,
+            type: 'HTTPResponse'
           };
 
-          xhr.globalPromise = xhr.globalPromise.then<XHRResponse | undefined>(() => undefined);
-          for (let i = 0; i < XHRInterceptor.afterResponseFuncs.length; i++) {
+          xhr.globalPromise = xhr.globalPromise.then<HTTPResponse | undefined>(() => undefined);
+          for (let i = 0; i < afterResponseFuncs.length; i++) {
             xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
               response = prevResponse || response;
-              return XHRInterceptor.afterResponseFuncs[i](
-                response,
-                xhr.openConfig,
-                xhr.requestBody,
-                xhr
+              return afterResponseFuncs[i](
+                response
               );
             });
           }
@@ -104,6 +50,10 @@ export class XHRInterceptor extends XMLHttpRequest {
             if(xhr.returnCustomResponse) {
                 xhr.customResponse = response;
             }
+            if(xhr.status === 0) {
+              // 失败，控制权交给onerror
+              return;
+            }
             // 直到所有的interceptor执行完毕 再进行触发
             xhr.dispatchEvent(new Event("readystatechange", {bubbles: false}));
           });
@@ -111,13 +61,14 @@ export class XHRInterceptor extends XMLHttpRequest {
       }
     );
 
+    // change the priority of onXXXX and addEventListener
     let onreadystatechangeFunc: Function = () => {};
     Object.defineProperty(xhr, 'onreadystatechange', {
         set: (newFunc) => {
             onreadystatechangeFunc = newFunc
         },
         get: () => {
-            return () => {}
+            return onreadystatechangeFunc;
         },
         configurable: true,
         enumerable: true
@@ -125,6 +76,71 @@ export class XHRInterceptor extends XMLHttpRequest {
 
     xhr.addEventListener('readystatechange', function(...args) {
         onreadystatechangeFunc.call(this, ...args);
+    });
+
+    let errHasCatched = false;
+    xhr.addEventListener('error', function(event) {
+      if(errHasCatched) return;
+      errHasCatched = true;
+      event.stopImmediatePropagation();
+      let errorOrResponse: HTTPError | HTTPResponse = {
+        type: event.type as HTTPErrorType,
+      }
+      xhr.globalPromise = xhr.globalPromise.then<void | undefined | HTTPError | HTTPResponse>(() => undefined);
+      for(let i = 0; i < receiveErrorFuncs.length; i++) {
+        xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
+          errorOrResponse = prevResponse || errorOrResponse;
+          if(errorOrResponse.type === 'HTTPResponse') {
+            throw errorOrResponse;
+          }
+          return receiveErrorFuncs[i](errorOrResponse);
+        });
+      }
+
+      xhr.globalPromise.then((prevResponse) => {
+        errorOrResponse = prevResponse || errorOrResponse;
+        if(errorOrResponse.type === 'HTTPResponse') {
+          throw errorOrResponse;
+        }
+        // touch error or abort or timeout
+        xhr.dispatchEvent(new Event(errorOrResponse.type, {bubbles: false}));
+      }).catch((response) => {
+        xhr.customResponse = response;
+        xhr.returnCustomResponse = true;
+        xhr.dispatchEvent(new Event("readystatechange", {bubbles: false}));
+      })
+    })
+
+    let onerrorFunc: Function = () => {};
+    Object.defineProperty(xhr, 'onerror', {
+      set: (newFunc) => {
+        onerrorFunc = newFunc
+      },
+      get: () => {
+          return onerrorFunc;
+      },
+      configurable: true,
+      enumerable: true
+    });
+    xhr.addEventListener('error', function(...args) {
+      onerrorFunc.call(xhr, ...args);
+    });
+
+    // 拦截数据获取
+    XHRResponseKeys.forEach((key) => {
+      // maybe is some typescript magic? https://github.com/microsoft/TypeScript/issues/4465#issuecomment-360256835
+      const getOrigin = () => super[key]
+      Object.defineProperty(xhr, key, {
+        get: () => {
+          if (xhr.returnCustomResponse && key in xhr.customResponse) {
+            return xhr.customResponse[key];
+          }
+
+          return getOrigin();
+        },
+        configurable: true,
+        enumerable: true,
+      });
     });
   }
 
@@ -144,100 +160,126 @@ export class XHRInterceptor extends XMLHttpRequest {
     password?: string | null
   ): void {
     this.openConfig = {
+      ...this.openConfig,
       method,
-      url,
-      async,
-      username,
-      password,
-    };
-
-    console.log("STUB OPEN");
-    this.globalPromise = this.globalPromise.then<OpenConfig | void>(() => this.openConfig);
-    for (let i = 0; i < XHRInterceptor.beforeOpenFuncs.length; i++) {
-      this.globalPromise = this.globalPromise.then((prevConfig) => {
-        this.openConfig = prevConfig || this.openConfig;
-        return XHRInterceptor.beforeOpenFuncs[i](this.openConfig, this);
-      });
-    }
-
-    this.globalPromise.then(() => {
-      console.log('Open')
-      if (this.openConfig.async === undefined) {
-        super.open(this.openConfig.method, this.openConfig.url);
-      } else {
-        super.open(
-          this.openConfig.method,
-          this.openConfig.url,
-          this.openConfig.async,
-          this.openConfig.username,
-          this.openConfig.password
-        );
+      url: url.toString(),
+      originConfig: {
+        async,
+        username,
+        password
       }
-    });
-
-    const xhr = this;
-    XHRResponseKeys.forEach((key) => {
-      const originValue = xhr[key];
-      Object.defineProperty(xhr, key, {
-        get: () => {
-          if (xhr.returnCustomResponse && key in xhr.customResponse) {
-            return xhr.customResponse[key];
-          }
-
-          return originValue;
-        },
-        configurable: true,
-        enumerable: true,
-      });
-    });
-
-
+    };
     
   }
+
   send(body?: Document | XMLHttpRequestBodyInit | null | undefined): void {
     this.globalPromise = this.globalPromise.then<
-      Document | XMLHttpRequestBodyInit | null | undefined | XHRResponse
-    >(undefined);
-    for (let i = 0; i < XHRInterceptor.beforeSendFuncs.length; i++) {
-      this.globalPromise = this.globalPromise.then((prevBody) => {
-        if (isXHRResponse(prevBody)) {
+      Document | XMLHttpRequestBodyInit | null | undefined | RequestInit
+    >(() => this.openConfig);
+    this.openConfig.body = body;
+    for (let i = 0; i < beforeRequestFuncs.length; i++) {
+      this.globalPromise = this.globalPromise.then((prevReturn) => {
+        if (prevReturn && prevReturn['type'] === 'HTTPResponse') {
           // 不send， 直接设置为已经send 完毕
-          throw prevBody;
+          throw prevReturn;
         }
-        body = prevBody || body;
-        return XHRInterceptor.beforeSendFuncs[i](
-          prevBody,
-          this.openConfig,
-          this
+        if(prevReturn && prevReturn?.['type'] === 'RequestInit') {
+          this.openConfig = prevReturn
+        }
+        return beforeRequestFuncs[i](
+          this.openConfig
         );
       });
     }
     const xhr = this;
     this.globalPromise
-      .then((prev) => {
-        xhr.requestBody = body;
-        if (isXHRResponse(prev)) {
-          // 不send， 直接设置为已经send 完毕
-          throw prev;
+      .then((prevReturn) => {
+        if(prevReturn && prevReturn['type'] === 'RequestInit') {
+          this.openConfig = prevReturn
         }
-        return prev;
+
+        if(this.openConfig.credentials === 'include') {
+          super.withCredentials = true;
+        } else {
+          super.withCredentials = false;
+        }
+
+        if(this.openConfig.headers) {
+          for(const headerKey in this.openConfig.headers) {
+            super.setRequestHeader(headerKey, this.openConfig.headers[headerKey])
+          }
+        }
+
+        // open
+        if (this.openConfig.originConfig!.async === undefined) {
+          super.open(this.openConfig.method!, this.openConfig.url!);
+        } else {
+          super.open(
+            this.openConfig.method!,
+            this.openConfig.url!,
+            this.openConfig.originConfig!.async,
+            this.openConfig.originConfig!.username,
+            this.openConfig.originConfig!.password
+          );
+        }
+        
+
+        if (prevReturn && prevReturn['type'] === 'HTTPResponse') {
+          // 不send， 直接设置为已经send 完毕
+          throw prevReturn;
+        }
+        return prevReturn;
       })
-      .then((prevBody) => {
+      .then(() => {
         // send
-        body = prevBody || body;
-        super.send(body);
+        super.send(this.openConfig.body);
+        
       })
       .catch((customRes) => {
         // 不send 直接触发事件，返回
-        console.log('has custom res', customRes)
         xhr.returnCustomResponse = true;
         xhr.customResponse = customRes;
+
+        xhr.customReadyState = 4;
         Object.defineProperty(xhr, 'readyState', {
-            get: () => 4,
-            configurable: true,
-            enumerable: true,
+          get: () => xhr.customReadyState,
+          configurable: true,
+          enumerable: true,
         })
-        xhr.dispatchEvent(new Event("readystatechange", {bubbles: true}));
+        xhr.dispatchEvent(new Event("readystatechange", {bubbles: false}));
       });
+  }
+
+  getAllResponseHeaders(): string {
+    if(this.returnCustomResponse && 'headers' in this.customResponse) {
+      const headers = this.customResponse.headers;
+      if(headers === undefined) {
+        return '';
+      }
+      return Object.entries(headers).map((headerEntry) => `${headerEntry[0]}: ${headerEntry[1]}`).join('\n');
+    }
+
+    return super.getAllResponseHeaders();
+  }
+  getResponseHeader(name: string): string | null {
+    if(this.returnCustomResponse && 'headers' in this.customResponse) {
+      const headers = this.customResponse.headers;
+      if(headers === undefined) {
+        return null;
+      }
+      return headers[name] || null;
+    }
+
+    return super.getResponseHeader(name);
+  }
+
+  static parseAllHeaders(headers: string): Record<string, string> {
+    const record: Record<string, string> = {};
+    headers.split('\n').forEach(header => {
+      const [key, value] = header.split(':');
+      record[key] = value;
+    });
+
+    return record;
   }
 }

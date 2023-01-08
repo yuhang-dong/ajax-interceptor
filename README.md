@@ -1,39 +1,68 @@
+<center><img src='./docs/icon.svg' /></center>
+
 # Ajax Interceptor
 
-Support `XMLHttpRequest` And `Fetch` API
+`ajax-interceptor` is a library to intercept `XMLHttpRequest` and `Fetch`. We can use it to change request header, method, even destination. It has the below props:
+
+* 🍃 **No Inject**. It doesn't change any business code, we can provide external script to intercept request.
 
 
-## XMLHttpRequest
+## Usage
 
-A Simple XMLHttpRequest Usage:
+### Install
+
+* CDN Import
+    ```
+    <script src="https://unpkg.com/@elliotdong/ajax-interceptor@latest/dist/index.umd.cjs"></script>
+    ```
+    This will import a global object - interceptor.
+ * NPM Install
+    ```
+    npm install @elliotdong/ajax-interceptor
+
+    // or
+
+    yarn add @elliotdong/ajax-interceptor
+
+    // or
+    pnpm install @elliotdong/ajax-interceptor
+    ```
+### API
+
+#### Start Intercept
+
 ```js
-const xhttp = new XMLHttpRequest();
-xhttp.onreadystatechange = function() {
-if (this.readyState == 4 && this.status == 200) {
-    document.getElementById("demo").innerHTML = this.responseText;
-}
-};
-xhttp.open("GET", "xmlhttp_info.txt", true);
-xhttp.send();
+// CDN import
+interceptor.intercept();
 
 ```
 
-We will provide three function to intercept the `XMLHttpRequest` 
-* `beforeOpen`
-* `beforeSend`
-* `afterResponse`
+```js
+// npm install
+import { intercept } from '@elliotdong/ajax-interceptor';
 
-### onRequest
+intercept()
+```
+#### Stop Intercept
+```js
+// CDN import
+interceptor.unIntercept();
+```
 
-There are two aspects:
+```js
+// npm install
+import { unIntercept } from '@elliotdong/ajax-interceptor';
+unIntercept();
+```
+#### Use BeforeRequest Interceptor
 
-1. change `open` config. 
-2. support async
 
-`beforeOpen` -> `beforeSend` -> `afterResponse`
+#### Use AfterResponse Interceptor
+
+#### Use ReceiveError Interceptor
 
 
-## Fetch
-
-* `beforeFetch`
-* `afterFetch`
+## Examples
+ 1. log 所有 请求、响应和接收到的信息 ✅
+ 2. 更改请求的方法或者URL或者body
+ 3. 假如远端报错（无法发出请求的错误），假扮成正常请求

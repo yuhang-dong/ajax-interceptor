@@ -1,31 +1,25 @@
-import { AfterResponseFunc, BeforeOpenFunc, BeforeSendFunc, XHRInterceptor } from './xhr-interceptor'
+import { XHRInterceptor } from './xhr-interceptor'
 
-const XHRSymbol = Symbol.for('AJAX_INTERCEPTOR_XML_HTTP_REQUEST');
+export * from './xhr-interceptor'
+export * from './interceptor'
+export * from './fetch-interceptor'
 
-export type InterceptorConfig = {
-    xhr?: {
-        beforeOpenFuncs?: BeforeOpenFunc[],
-        beforeSendFuncs?: BeforeSendFunc[],
-        afterResponseFuncs?: AfterResponseFunc[]
-    },
-    fetch: {
+export const XHRSymbol = Symbol.for('AJAX_INTERCEPTOR_XML_HTTP_REQUEST');
+export let originXHR: null | typeof XMLHttpRequest = null;
 
-    }
-}
-
-const intercept = (config: InterceptorConfig, win?: typeof window) => {
-    XHRInterceptor.beforeOpenFuncs.push(...(config.xhr?.beforeOpenFuncs || []));
-    XHRInterceptor.beforeSendFuncs.push(...(config.xhr?.beforeSendFuncs || []));
-    XHRInterceptor.afterResponseFuncs.push(...(config.xhr?.afterResponseFuncs || []));
+export const intercept = ( win?: typeof window) => {
     const global = win || window;
-    // @ts-ignore
-    global[XHRSymbol] = global.XMLHttpRequest;
+    if(!originXHR) {
+        originXHR = global.XMLHttpRequest;
+    }
     global.XMLHttpRequest = XHRInterceptor;
-
-    
-    
 }
 
-export {
-    intercept
+export const unIntercept = (win?: typeof window) => {
+    const global = win || window;
+    if(originXHR) {
+        global.XMLHttpRequest = originXHR;
+        originXHR = null;
+    }
+    
 }
