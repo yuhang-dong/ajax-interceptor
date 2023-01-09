@@ -1,3 +1,4 @@
+import { FetchInterceptor, originFetch } from './fetch-interceptor';
 import { XHRInterceptor } from './xhr-interceptor'
 
 export * from './xhr-interceptor'
@@ -13,6 +14,7 @@ export const intercept = ( win?: typeof window) => {
         originXHR = global.XMLHttpRequest;
     }
     global.XMLHttpRequest = XHRInterceptor;
+    global.fetch = FetchInterceptor;
 }
 
 export const unIntercept = (win?: typeof window) => {
@@ -21,5 +23,6 @@ export const unIntercept = (win?: typeof window) => {
         global.XMLHttpRequest = originXHR;
         originXHR = null;
     }
+    global.fetch = originFetch;
     
 }

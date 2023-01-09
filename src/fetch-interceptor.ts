@@ -1,7 +1,7 @@
 import {isHTTPResponse, afterResponseFuncs, beforeRequestFuncs, defineResponse, HTTPError, HTTPResponse, InterceptorRequestInit, receiveErrorFuncs } from "./interceptor";
 
 
-const originFetch = window.fetch;
+export const originFetch = window.fetch;
 
 export const FetchInterceptor = (input: RequestInfo | URL, init?: RequestInit) => {
     let requestInit: InterceptorRequestInit = {
