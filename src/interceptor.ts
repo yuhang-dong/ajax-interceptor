@@ -4,7 +4,7 @@ export type XHROpenConfig = {
     password?: string | null;
   };
 
-export type RequestInit = {
+export type InterceptorRequestInit = {
     method?: string, // default: GET
     url?: string,
     body?: XMLHttpRequestBodyInit | null | Document,
@@ -18,22 +18,24 @@ export type HTTPResponse = {
     headers?: Record<string, string>;
     status?: number;
     statusText?: string;
-    response?: any;
+    response?: Blob;
     type: 'HTTPResponse'
 }
-export type HTTPErrorType = 'error' | 'timeout' | 'abort'
+export type HTTPErrorType = 'error' | 'timeout' | 'abort' | 'fetch'
 
 export type HTTPError = {
-    type: HTTPErrorType
+    type: HTTPErrorType,
+    cause?: Error
 }
 
-export type BeforeRequest = (requestInit: RequestInit) => Promise<void | undefined | RequestInit | HTTPResponse>;
-export type AfterResponse = (response: HTTPResponse) => Promise<void | undefined | HTTPResponse>;
-export type ReceiveError = (err: HTTPError) => Promise<void | undefined | HTTPError | HTTPResponse>;
+export type BeforeRequest = (requestInit: InterceptorRequestInit) => Promise<void | undefined | InterceptorRequestInit | HTTPResponse>;
+export type AfterResponse = (response: HTTPResponse, requestInit: InterceptorRequestInit) => Promise<void | undefined | HTTPResponse>;
+export type ReceiveError = (err: HTTPError, requestInit: InterceptorRequestInit) => Promise<void | undefined | HTTPError | HTTPResponse>;
 
 export const beforeRequestFuncs: BeforeRequest[] = [];
 export const afterResponseFuncs: AfterResponse[] = [];
 export const receiveErrorFuncs: ReceiveError[] = [];
+
 export const defineResponse = (response: Omit<HTTPResponse, 'type'>): HTTPResponse => {
     return {
         ...response,
@@ -41,9 +43,25 @@ export const defineResponse = (response: Omit<HTTPResponse, 'type'>): HTTPRespon
     }
 }
 
-export const defineRequestInit = (requestInit: Omit<RequestInit, 'type'>): RequestInit => {
+export const defineRequestInit = (requestInit: Omit<InterceptorRequestInit, 'type'>): InterceptorRequestInit => {
     return {
         ...requestInit,
         type: 'RequestInit'
     }
+}
+
+export const addBeforeRequestInterceptor = (beforeRequest: BeforeRequest) => {
+    beforeRequestFuncs.push(beforeRequest);
+}
+
+export const addAfterResponseInterceptor = (afterResponse: AfterResponse) => {
+    afterResponseFuncs.push(afterResponse);
+}
+
+export const addReceiveErrorInterceptor = (receiveError: ReceiveError) => {
+    receiveErrorFuncs.push(receiveError);
+}
+
+export const isHTTPResponse = (obj: any): obj is HTTPResponse => {
+    return obj && obj.type === 'HTTPResponse'
 }

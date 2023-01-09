@@ -1,0 +1,75 @@
+
+<!DOCTYPE html>
+<html>
+  <head lang="zh-cmn-Hans">
+    <meta charset="UTF-8" />
+    <title>Ajax hook Demo</title>
+    <meta name="renderer" content="webkit" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=0.5,user-scalable=no"
+    />
+    <meta name="keywords" content="Ajax intercept Demo" />
+  </head>
+
+  <body>
+    <h1>Usage:</h1>
+    <ol>
+        <li>open devtools to see `Console`</li>
+        <li>Click `Intercept Ajax` button</li>
+        <li>Click `Get API` button</li>
+        <li>You can see the message: Hello, Ajax error</li>
+    </ol>
+    <button onclick="interceptAjax()">Intercept Ajax</button>
+    <button onclick="unInterceptAjax()">UnIntercept Ajax</button>
+    <button onclick="onClick()">Get API</button>
+    <div
+      id="textarea"
+      style="
+        height: 400px;
+        border: 1px solid black;
+        margin-top: 10px;
+        background-color: lightgray;
+        overflow-y: auto;
+      "
+    ></div>
+
+    <script src="../dist/index.umd.cjs"></script>
+    <script>
+      const textarea = document.getElementById("textarea");
+
+      interceptor.receiveErrorFuncs.push(async (error) => {
+        console.log('interceptor receive a error');
+        console.log('We can change it to a common response');
+
+        return interceptor.defineResponse({
+          status: 200,
+          response: 'Hello, Ajax error'
+        })
+      });
+
+      function interceptAjax() {
+        interceptor.intercept();
+        textarea.innerText = 'Ok, we have intercepted the ajax'
+      }
+
+      function unInterceptAjax() {
+        interceptor.unIntercept();
+        textarea.innerText = 'Restore Ajax...'
+      }
+      function onClick() {
+        // const apiURL =
+        // "https://api.github.com/repos/vuejs/vue/commits?per_page=3&sha=main";
+
+        const apiURL = 'asdasd'
+        fetch(apiURL).then((res) => {
+            console.log({res: res.text()})
+        }).catch(err => {
+            console.log('find error');
+            console.log(err)
+        })
+      }
+    </script>
+  </body>
+</html>

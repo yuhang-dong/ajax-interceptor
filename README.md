@@ -1,5 +1,8 @@
-<p align="center"><img src='./docs/icon.svg' /></p>
+<p align="center"><img src='./docs/icon.svg' width="474px" height="98px"/></p>
+
 ---
+
+[![npm version](https://img.shields.io/npm/v/@elliotdong/ajax-interceptor?color=blue)](https://www.npmjs.org/package/@elliotdong/ajax-interceptor) [![license](https://img.shields.io/github/license/mashape/apistatus.svg)](https://opensource.org/licenses/mit-license.php) ![](https://img.shields.io/badge/TypeScript-support-orange.svg)   [![](https://img.shields.io/bundlephobia/minzip/@elliotdong/ajax-interceptor/latest)](https://unpkg.com/ajax-hook@2.0.0/dist/ajaxhook.core.min.js)
 
 ---
 
@@ -7,13 +10,14 @@
 
 * 🍃 **No Inject**. It doesn't change any business code, we can provide external script to intercept request.
 
+<img src='./docs/process.svg'/>
 
 ## Usage
-
+You can see the examples from [examples](./examples/)
 ### Install
 
 * CDN Import
-    ```
+    ```html
     <script src="https://unpkg.com/@elliotdong/ajax-interceptor@latest/dist/index.umd.cjs"></script>
     ```
     This will import a global object - interceptor.
@@ -56,14 +60,77 @@ import { unIntercept } from '@elliotdong/ajax-interceptor';
 unIntercept();
 ```
 #### Use BeforeRequest Interceptor
+```ts
+import { addBeforeRequestInterceptor, defineRequestInit } from '@elliotdong/ajax-interceptor';
 
+addBeforeRequestInterceptor(async (requestInit: {
+    method?: string, // default: GET
+    url?: string,
+    body?: XMLHttpRequestBodyInit | null | Document,
+    credentials?: "include" | "omit" | "same-origin",
+    headers?: Record<string, string>;
+}) => {
+    console.log({requestInit});
+
+    if(requestInit.method === 'get') {
+        // if you want to change request, use `defineRequestInit`
+        return defineRequestInit({
+            method?: string,
+            url?: string,
+            body?: XMLHttpRequestBodyInit | null | Document,
+            credentials?: RequestCredentials,
+            headers?: Record<string, string>;
+        })
+    }
+    // or not, return void
+})
+```
 
 #### Use AfterResponse Interceptor
+```ts
+import { addAfterResponseInterceptor, defineResponse } from '@elliotdong/ajax-interceptor';
 
+addAfterResponseInterceptor(async (response: {
+    headers?: Record<string, string>;
+    status?: number;
+    statusText?: string;
+    response?: Blob;
+}, requestInit) => {
+    console.log({response});
+
+    // if you want to change request, use `defineResponse`
+    return defineResponse({
+        method?: string,
+        url?: string,
+        body?: XMLHttpRequestBodyInit | null | Document,
+        credentials?: RequestCredentials,
+        headers?: Record<string, string>;
+    })
+
+})
+```
 #### Use ReceiveError Interceptor
+```ts
+import { addReceiveErrorInterceptor, defineResponse } from '@elliotdong/ajax-interceptor';
 
+addReceiveErrorInterceptor(async (error: {
+    type: 'error' | 'timeout' | 'abort' | 'fetch',
+    cause?: Error
+}, requestInit) => {
+    console.log({response});
 
-## Examples
- 1. log 所有 请求、响应和接收到的信息 ✅
- 2. 更改请求的方法或者URL或者body
- 3. 假如远端报错（无法发出请求的错误），假扮成正常请求
+    if(requestInit.url.startWith('www.baidu.com')) {
+        // if you want to change err to response, use `defineResponse`
+        return defineResponse({
+            method?: string,
+            url?: string,
+            body?: XMLHttpRequestBodyInit | null | Document,
+            credentials?: RequestCredentials,
+            headers?: Record<string, string>;
+        })
+    }
+    
+
+})
+```
+

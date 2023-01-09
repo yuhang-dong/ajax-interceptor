@@ -1,5 +1,5 @@
-import { beforeRequestFuncs, HTTPResponse, afterResponseFuncs, receiveErrorFuncs, HTTPError, HTTPErrorType } from "./interceptor";
-import type {RequestInit} from './interceptor'
+import { beforeRequestFuncs, HTTPResponse, afterResponseFuncs, receiveErrorFuncs, HTTPError, HTTPErrorType, isHTTPResponse } from "./interceptor";
+import type {InterceptorRequestInit} from './interceptor'
 
 export const XHRResponseKeys = [
   "status",
@@ -9,7 +9,7 @@ export const XHRResponseKeys = [
 
 export class XHRInterceptor extends XMLHttpRequest {
 
-  private openConfig: RequestInit = {type: 'RequestInit'};
+  private openConfig: InterceptorRequestInit = {type: 'RequestInit'};
   private returnCustomResponse: boolean = false;
   private customResponse: HTTPResponse = {type: 'HTTPResponse'};
   private globalPromise = Promise.resolve<any>({});
@@ -28,6 +28,7 @@ export class XHRInterceptor extends XMLHttpRequest {
           if (isIntercept) return;
           isIntercept = !isIntercept;
           event.stopImmediatePropagation();
+          // read xhr response as blob
           let response: HTTPResponse = {
             response: xhr.response,
             headers: XHRInterceptor.parseAllHeaders(xhr.getAllResponseHeaders()),
@@ -35,13 +36,13 @@ export class XHRInterceptor extends XMLHttpRequest {
             statusText: xhr.statusText,
             type: 'HTTPResponse'
           };
-
           xhr.globalPromise = xhr.globalPromise.then<HTTPResponse | undefined>(() => undefined);
           for (let i = 0; i < afterResponseFuncs.length; i++) {
             xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
               response = prevResponse || response;
               return afterResponseFuncs[i](
-                response
+                response,
+                xhr.openConfig
               );
             });
           }
@@ -90,16 +91,16 @@ export class XHRInterceptor extends XMLHttpRequest {
       for(let i = 0; i < receiveErrorFuncs.length; i++) {
         xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
           errorOrResponse = prevResponse || errorOrResponse;
-          if(errorOrResponse.type === 'HTTPResponse') {
+          if(isHTTPResponse(errorOrResponse)) {
             throw errorOrResponse;
           }
-          return receiveErrorFuncs[i](errorOrResponse);
+          return receiveErrorFuncs[i](errorOrResponse, xhr.openConfig);
         });
       }
 
       xhr.globalPromise.then((prevResponse) => {
         errorOrResponse = prevResponse || errorOrResponse;
-        if(errorOrResponse.type === 'HTTPResponse') {
+        if(isHTTPResponse(errorOrResponse)) {
           throw errorOrResponse;
         }
         // touch error or abort or timeout
@@ -128,14 +129,20 @@ export class XHRInterceptor extends XMLHttpRequest {
 
     // 拦截数据获取
     XHRResponseKeys.forEach((key) => {
-      // maybe is some typescript magic? https://github.com/microsoft/TypeScript/issues/4465#issuecomment-360256835
+      // maybe is any typescript magic? https://github.com/microsoft/TypeScript/issues/4465#issuecomment-360256835
       const getOrigin = () => super[key]
       Object.defineProperty(xhr, key, {
         get: () => {
           if (xhr.returnCustomResponse && key in xhr.customResponse) {
             return xhr.customResponse[key];
           }
-
+          if(key === 'response') {
+            const originXHRResponseType = super['responseType'];
+            super['responseType'] = 'blob';
+            const response = getOrigin();
+            super['responseType'] = originXHRResponseType;
+            return response;
+          }
           return getOrigin();
         },
         configurable: true,
@@ -174,7 +181,7 @@ export class XHRInterceptor extends XMLHttpRequest {
 
   send(body?: Document | XMLHttpRequestBodyInit | null | undefined): void {
     this.globalPromise = this.globalPromise.then<
-      Document | XMLHttpRequestBodyInit | null | undefined | RequestInit
+      Document | XMLHttpRequestBodyInit | null | undefined | InterceptorRequestInit
     >(() => this.openConfig);
     this.openConfig.body = body;
     for (let i = 0; i < beforeRequestFuncs.length; i++) {
@@ -246,6 +253,7 @@ export class XHRInterceptor extends XMLHttpRequest {
           configurable: true,
           enumerable: true,
         })
+        // TODO 没有完成readyState 2，3，4的步骤
         xhr.dispatchEvent(new Event("readystatechange", {bubbles: false}));
       });
   }
