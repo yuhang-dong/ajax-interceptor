@@ -43,5 +43,8 @@
     "vite": "^4.0.0",
     "@changesets/cli": "^2.26.0"
   },
-  "packageManager": "pnpm@7.12.2"
+  "packageManager": "pnpm@7.12.2",
+  "publishConfig": {
+    "access": "public"
+  }  
 }
