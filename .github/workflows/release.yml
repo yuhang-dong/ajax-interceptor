@@ -32,6 +32,9 @@ jobs:
       
       - name: Get Elliot Kong Token
         uses: elliotdong/auth-as-bot-action@v1.0.1
+        env:
+          GITHUB_APP_PEM: ${{ secrets.ELLIOT_GITHUB_PEM }}
+          GITHUB_APP_ID: ${{ secrets.ELLIOT_APP_ID }}
 
       - name: Create Release Pull Request or Publish
         id: changesets
