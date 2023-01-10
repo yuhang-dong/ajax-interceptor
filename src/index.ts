@@ -5,7 +5,6 @@ export * from './xhr-interceptor'
 export * from './interceptor'
 export * from './fetch-interceptor'
 
-export const XHRSymbol = Symbol.for('AJAX_INTERCEPTOR_XML_HTTP_REQUEST');
 export let originXHR: null | typeof XMLHttpRequest = null;
 
 export const intercept = ( win?: typeof window) => {

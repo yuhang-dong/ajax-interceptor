@@ -10,7 +10,7 @@ export const FetchInterceptor = (input: RequestInfo | URL, init?: RequestInit) =
         credentials: init?.credentials,
         body: init?.body as any,
         type: 'RequestInit',
-        headers: parseHeaders(init!.headers),
+        headers: parseHeaders(init?.headers),
     };
 
     let globalPromise = Promise.resolve<any>(undefined);

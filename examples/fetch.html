@@ -35,8 +35,8 @@
       "
     ></div>
 
-    <script src="../dist/index.umd.cjs"></script>
-    <script>
+    <script type="module">
+      import * as interceptor from '../src/index'
       const textarea = document.getElementById("textarea");
 
       interceptor.receiveErrorFuncs.push(async (error) => {
@@ -49,22 +49,24 @@
         })
       });
 
-      function interceptAjax() {
+      window.interceptAjax = () => {
         interceptor.intercept();
         textarea.innerText = 'Ok, we have intercepted the ajax'
       }
 
-      function unInterceptAjax() {
+      window.unInterceptAjax = () => {
         interceptor.unIntercept();
         textarea.innerText = 'Restore Ajax...'
       }
-      function onClick() {
+      window.onClick = () => {
         // const apiURL =
         // "https://api.github.com/repos/vuejs/vue/commits?per_page=3&sha=main";
 
         const apiURL = 'asdasd'
         fetch(apiURL).then((res) => {
-            console.log({res: res.text()})
+            return res.text();
+        }).then(text => {
+          console.log({res: text})
         }).catch(err => {
             console.log('find error');
             console.log(err)

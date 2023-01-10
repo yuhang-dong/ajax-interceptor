@@ -1,3 +1,5 @@
+import { XHRInterceptor } from "./xhr-interceptor";
+
 export type XHROpenConfig = {
     async?: boolean;
     username?: string | null;
@@ -28,7 +30,7 @@ export type HTTPError = {
     cause?: Error
 }
 
-export type BeforeRequest = (requestInit: InterceptorRequestInit) => Promise<void | undefined | InterceptorRequestInit | HTTPResponse>;
+export type BeforeRequest = (requestInit: InterceptorRequestInit, xhr?: XHRInterceptor) => Promise<void | undefined | InterceptorRequestInit | HTTPResponse>;
 export type AfterResponse = (response: HTTPResponse, requestInit: InterceptorRequestInit) => Promise<void | undefined | HTTPResponse>;
 export type ReceiveError = (err: HTTPError, requestInit: InterceptorRequestInit) => Promise<void | undefined | HTTPError | HTTPResponse>;
 
