@@ -9,7 +9,7 @@ export const XHRResponseKeys = [
 
 export class XHRInterceptor extends XMLHttpRequest {
 
-  private openConfig: InterceptorRequestInit = {type: 'RequestInit'};
+  private openConfig: InterceptorRequestInit = {type: 'RequestInit', headers: {}};
   private returnCustomResponse: boolean = false;
   private customResponse: HTTPResponse = {type: 'HTTPResponse'};
   private globalPromise = Promise.resolve<any>({});
@@ -136,13 +136,14 @@ export class XHRInterceptor extends XMLHttpRequest {
           if (xhr.returnCustomResponse && key in xhr.customResponse) {
             return xhr.customResponse[key];
           }
-          if(key === 'response') {
-            const originXHRResponseType = super['responseType'];
-            super['responseType'] = 'blob';
-            const response = getOrigin();
-            super['responseType'] = originXHRResponseType;
-            return response;
-          }
+          // This will cause XMLHttpRequest Error, wait to fix!
+          // if(key === 'response') {
+          //   const originXHRResponseType = super['responseType'];
+          //   super['responseType'] = 'blob';
+          //   const response = getOrigin();
+          //   super['responseType'] = originXHRResponseType;
+          //   return response;
+          // }
           return getOrigin();
         },
         configurable: true,
@@ -184,6 +185,7 @@ export class XHRInterceptor extends XMLHttpRequest {
       Document | XMLHttpRequestBodyInit | null | undefined | InterceptorRequestInit
     >(() => this.openConfig);
     this.openConfig.body = body;
+    const xhr = this;
     for (let i = 0; i < beforeRequestFuncs.length; i++) {
       this.globalPromise = this.globalPromise.then((prevReturn) => {
         if (prevReturn && prevReturn['type'] === 'HTTPResponse') {
@@ -194,11 +196,11 @@ export class XHRInterceptor extends XMLHttpRequest {
           this.openConfig = prevReturn
         }
         return beforeRequestFuncs[i](
-          this.openConfig
+          this.openConfig,
+          xhr
         );
       });
     }
-    const xhr = this;
     this.globalPromise
       .then((prevReturn) => {
         if(prevReturn && prevReturn['type'] === 'RequestInit') {
