@@ -15,7 +15,12 @@
     "skipLibCheck": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "paths": {
+      "@helper/*": ["tests/utils/*"] // This mapping is relative to "baseUrl".
+    },
+    "baseUrl": "."
+    
   },
-  "include": ["src"]
+  "include": ["src", "tests"],
 }
