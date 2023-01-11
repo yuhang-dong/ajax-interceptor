@@ -14,7 +14,49 @@ export class XHRInterceptor extends XMLHttpRequest {
   private customResponse: HTTPResponse = {type: 'HTTPResponse'};
   private globalPromise = Promise.resolve<any>({});
   private customReadyState = 0;
+  private hasOpened = false;
 
+  private hasHandleAfterReponse = false;
+  private handleAfterResponse() {
+    // 确保只被处理一次
+    if(this.hasHandleAfterReponse) return;
+    this.hasHandleAfterReponse = true;
+    const xhr = this;
+    let response: HTTPResponse = {
+      response: xhr.response,
+      headers: XHRInterceptor.parseAllHeaders(xhr.getAllResponseHeaders()),
+      status: xhr.status,
+      statusText: xhr.statusText,
+      type: 'HTTPResponse'
+    };
+    xhr.globalPromise = xhr.globalPromise.then<HTTPResponse | undefined>(() => undefined);
+    for (let i = 0; i < afterResponseFuncs.length; i++) {
+      xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
+        if(isHTTPResponse(prevResponse)) {
+          xhr.returnCustomResponse = true;
+        }
+        response = prevResponse || response;
+        return afterResponseFuncs[i](
+          response,
+          xhr.openConfig
+        );
+      });
+    }
+
+    xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
+      if(isHTTPResponse(prevResponse)) {
+        xhr.returnCustomResponse = true;
+      }
+      response = prevResponse || response;
+      if(xhr.returnCustomResponse) {
+          xhr.customResponse = response;
+      }
+      if(xhr.status === 0) {
+        // 失败，控制权交给onerror
+        return;
+      }
+    });
+  }
   constructor() {
     super();
 
@@ -28,39 +70,26 @@ export class XHRInterceptor extends XMLHttpRequest {
           if (isIntercept) return;
           isIntercept = !isIntercept;
           event.stopImmediatePropagation();
-          // read xhr response as blob
-          let response: HTTPResponse = {
-            response: xhr.response,
-            headers: XHRInterceptor.parseAllHeaders(xhr.getAllResponseHeaders()),
-            status: xhr.status,
-            statusText: xhr.statusText,
-            type: 'HTTPResponse'
-          };
-          xhr.globalPromise = xhr.globalPromise.then<HTTPResponse | undefined>(() => undefined);
-          for (let i = 0; i < afterResponseFuncs.length; i++) {
-            xhr.globalPromise = xhr.globalPromise.then((prevResponse) => {
-              response = prevResponse || response;
-              return afterResponseFuncs[i](
-                response,
-                xhr.openConfig
-              );
-            });
-          }
-
-          xhr.globalPromise.then(() => {
-            if(xhr.returnCustomResponse) {
-                xhr.customResponse = response;
-            }
-            if(xhr.status === 0) {
-              // 失败，控制权交给onerror
-              return;
-            }
+          xhr.handleAfterResponse();
+          xhr.globalPromise = xhr.globalPromise.then(() => {
             // 直到所有的interceptor执行完毕 再进行触发
             xhr.dispatchEvent(new Event("readystatechange", {bubbles: false}));
-          });
+          })
         }
       }
     );
+
+    let hasInterceptLoadend = false;
+    xhr.addEventListener('loadend', function(event) {
+      if(hasInterceptLoadend) return;
+      hasInterceptLoadend = !hasInterceptLoadend;
+      event.stopImmediatePropagation();
+      xhr.handleAfterResponse();
+      xhr.globalPromise = xhr.globalPromise.then(() => {
+        // 直到所有的interceptor执行完毕 再进行触发
+        xhr.dispatchEvent(new Event("loadend", {bubbles: false}));
+      })
+    })
 
     // change the priority of onXXXX and addEventListener
     let onreadystatechangeFunc: Function = () => {};
@@ -127,6 +156,21 @@ export class XHRInterceptor extends XMLHttpRequest {
       onerrorFunc.call(xhr, ...args);
     });
 
+    let onloadendFunc: Function = () => {};
+    Object.defineProperty(xhr, 'onloadend', {
+      set: (newFunc) => {
+        onloadendFunc = newFunc
+      },
+      get: () => {
+          return onloadendFunc;
+      },
+      configurable: true,
+      enumerable: true
+    });
+    xhr.addEventListener('loadend', function(...args) {
+      onloadendFunc.call(xhr, ...args);
+    });
+
     // 拦截数据获取
     XHRResponseKeys.forEach((key) => {
       // maybe is any typescript magic? https://github.com/microsoft/TypeScript/issues/4465#issuecomment-360256835
@@ -177,6 +221,7 @@ export class XHRInterceptor extends XMLHttpRequest {
         password
       }
     };
+    this.hasOpened = true;
     
   }
 
@@ -213,12 +258,6 @@ export class XHRInterceptor extends XMLHttpRequest {
           super.withCredentials = false;
         }
 
-        if(this.openConfig.headers) {
-          for(const headerKey in this.openConfig.headers) {
-            super.setRequestHeader(headerKey, this.openConfig.headers[headerKey])
-          }
-        }
-
         // open
         if (this.openConfig.originConfig!.async === undefined) {
           super.open(this.openConfig.method!, this.openConfig.url!);
@@ -232,6 +271,11 @@ export class XHRInterceptor extends XMLHttpRequest {
           );
         }
         
+        if(this.openConfig.headers) {
+          for(const headerKey in this.openConfig.headers) {
+            super.setRequestHeader(headerKey, this.openConfig.headers[headerKey])
+          }
+        }
 
         if (prevReturn && prevReturn['type'] === 'HTTPResponse') {
           // 不send， 直接设置为已经send 完毕
@@ -258,6 +302,20 @@ export class XHRInterceptor extends XMLHttpRequest {
         // TODO 没有完成readyState 2，3，4的步骤
         xhr.dispatchEvent(new Event("readystatechange", {bubbles: false}));
       });
+  }
+
+  setRequestHeader(name: string, value: string): void {
+      if(!this.hasOpened) {
+        super.setRequestHeader(name, value) // throw err
+        return;
+      }
+
+      const headers = this.openConfig.headers || {};
+      this.openConfig.headers = {
+        ...headers,
+      };
+
+      this.openConfig.headers[name] = value;
   }
 
   getAllResponseHeaders(): string {

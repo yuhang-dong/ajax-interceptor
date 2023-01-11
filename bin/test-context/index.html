@@ -11,8 +11,25 @@
     <!-- import axios -->
     <script src="https://unpkg.com/axios@1.1.2/dist/axios.min.js"></script>
     <script type="module">
-        import {intercept, addBeforeRequestInterceptor} from '../../src/index.ts';
+        import {intercept, addBeforeRequestInterceptor, defineResponse, addReceiveErrorInterceptor, addAfterResponseInterceptor} from '../../src/index.ts';
         intercept();
+
+        // addBeforeRequestInterceptor(async () => {
+        //     return defineResponse({
+        //         status: 200
+        //     })
+        // })
+        // addReceiveErrorInterceptor(async () => {
+        //     return defineResponse({
+        //         status: 200
+        //     })
+        // })
+        addAfterResponseInterceptor(async () => {
+            return defineResponse({
+                status: 200
+            })
+        })
+
     </script>
 </body>
 </html>
