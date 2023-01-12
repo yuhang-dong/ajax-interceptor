@@ -1,4 +1,4 @@
-import type { Page, Request } from '@playwright/test';
+import type { ConsoleMessage, Page, Request } from '@playwright/test';
 
 let mostRecentRequest: Request | undefined = undefined;
 
@@ -46,6 +46,16 @@ const listenPageError = (err: Error) => {
     console.error(err);
 }
 
+const listenPageConsole = (info: ConsoleMessage) => {
+  if(info.type() === 'debug') {
+    return;
+  }
+  console.info({
+    type: info.type(),
+    text: info.text()
+  })
+}
+
 const handleMostRequest = (request: Request) => {
     recordRequest(request);
 }
@@ -55,12 +65,14 @@ export const installHelper = async (page: Page) => {
     await page.reload();
     page.addListener('pageerror', listenPageError);
     page.addListener('request', handleMostRequest);
+    page.addListener('console', listenPageConsole)
 }
 
 export const unInstallHelper = async (page: Page) => {
     page.removeListener('pageerror', listenPageError);
     page.removeListener('request', handleMostRequest);
     clearMostRecent();
+    page.removeListener('console', listenPageConsole)
 }
 
 export const parseUrl = (url: string) => {
