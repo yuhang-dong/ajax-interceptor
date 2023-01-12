@@ -16,7 +16,11 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "outDir": "dist",
+    "paths": {
+      "@helper/*": ["utils/*"] // This mapping is relative to "baseUrl".
+    },
+    "baseUrl": "."
     
   },
-  "include": ["src"],
+  "include": ["."],
 }
