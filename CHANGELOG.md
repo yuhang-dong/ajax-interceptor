@@ -1,5 +1,13 @@
 # @elliotdong/ajax-interceptor
 
+## 0.1.1
+
+### Patch Changes
+
+- 3308224: fix: typescript will cause tests are built
+- f46551a: Add Playwright support
+- 1ddf785: Both onreadychange and onloadend are support
+
 ## 0.1.0
 
 ### Minor Changes
