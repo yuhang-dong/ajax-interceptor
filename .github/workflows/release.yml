@@ -31,7 +31,7 @@ jobs:
         run: pnpm run build
       
       - name: Get Elliot Kong Token
-        uses: elliotdong/auth-as-bot-action@v1.1.0
+        uses: elliotdong/auth-as-bot-action@v2
         env:
           GITHUB_APP_PEM: ${{ secrets.ELLIOT_GITHUB_PEM }}
           GITHUB_APP_ID: ${{ secrets.ELLIOT_APP_ID }}
