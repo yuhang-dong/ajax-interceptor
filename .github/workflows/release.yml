@@ -29,16 +29,9 @@ jobs:
 
       - name: Build Packages
         run: pnpm run build
-      
-      - name: Get Elliot Kong Token
-        run: npx @elliotdong/auth-as-bot-action
-        env:
-          GITHUB_APP_PEM: ${{ secrets.ELLIOT_GITHUB_PEM }}
-          GITHUB_APP_ID: ${{ secrets.ELLIOT_APP_ID }}
 
       - name: Create Release Pull Request or Publish
-        id: changesets
-        uses: changesets/action@v1
+        run: npx changesets-with-bot
         with:
           # Note: pnpm install after versioning is necessary to refresh lockfile
           version: pnpm run version
@@ -48,3 +41,6 @@ jobs:
         env:
           # Needs access to publish to npm
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GITHUB_APP_PEM: ${{ secrets.ELLIOT_GITHUB_PEM }}
+          GITHUB_APP_ID: ${{ secrets.ELLIOT_APP_ID }}
+          ACCOUNT_ID: ${{ github.repository_owner_id }}
