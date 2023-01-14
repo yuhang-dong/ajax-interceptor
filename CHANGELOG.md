@@ -1,5 +1,14 @@
 # @elliotdong/ajax-interceptor
 
+## 0.1.2
+
+### Patch Changes
+
+- e16d207: update readme
+- 38717e7: update CI action
+- 70c529b: use bot
+- d23d6a0: fix: release action
+
 ## 0.1.1
 
 ### Patch Changes
