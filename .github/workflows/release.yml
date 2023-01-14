@@ -35,9 +35,7 @@ jobs:
         env:
           # Needs access to publish to npm
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_APP_PEM: ${{ secrets.ELLIOT_GITHUB_PEM }}
-          GITHUB_APP_ID: ${{ secrets.ELLIOT_APP_ID }}
-          ACCOUNT_ID: ${{ github.repository_owner_id }}
+          GITHUB_TOKEN: ${{ github.token }}
           VERSION_COMMAND: "pnpm run version"
           PUBLISH_COMMAND: "pnpm exec changeset publish"
           COMMIT_INFO: "'[ci] release'"
